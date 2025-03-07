@@ -1,0 +1,13 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="UpdateCheckerApp.MainWindow"
+        Title="Sonic Unleashed Recompiled Updater"
+        Width="500" Height="500">
+    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+        <TextBlock Name="CurrentVersion" HorizontalAlignment="Center" Margin="10" />
+        <Button Name="CheckUpdateButton" Content="Check for Update" Width="200" Click="OnCheckUpdateButtonClick"/>
+        <TextBlock Name="UpdateStatusText" HorizontalAlignment="Center" Margin="10" />
+        <TextBlock Name="UpdateStatusError" HorizontalAlignment="Center" Margin="10" />
+        <TextBlock Name="LoggingText" HorizontalAlignment="Center" Margin="10" />
+    </StackPanel>
+</Window>
