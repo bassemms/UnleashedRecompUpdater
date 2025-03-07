@@ -11,6 +11,7 @@ namespace UpdateCheckerApp
     public partial class MainWindow : Window
     {
         public string localVersion = "";
+        public string latestVersion = "";
 
         public enum UpdateStatus
         {
@@ -26,29 +27,77 @@ namespace UpdateCheckerApp
         {
             InitializeComponent();
 
-            string filePath = @".\UnleashedRecomp.exe";
+            getLocalVersion();
+        }
 
-            if (!System.IO.File.Exists(filePath))
-            {
-                UpdateStatusText.Text =
-                    "Error: UnleashedRecomp.exe not found.\nMake sure to put this file in the same directory as the game.";
+        private async void DownloadUpdateButtonClick(object sender, RoutedEventArgs e)
+        {
+            string downloadUrl =
+                "https://github.com/hedge-dev/UnleashedRecomp/releases/download/"
+                + latestVersion
+                + "/UnleashedRecomp-Windows.zip";
 
-                CheckUpdateButton.IsEnabled = false;
-            }
-            else
+            UpdateStatusText.Text = "Downloading update...";
+            DownloadUpdateButton.IsEnabled = false;
+
+            using (HttpClient client = new HttpClient())
             {
-                FileVersionInfo versionInfo = FileVersionInfo.GetVersionInfo(filePath);
-                localVersion = versionInfo.FileVersion ?? "0.0.0.0";
-                Console.WriteLine($"Local version: {localVersion}");
-                CurrentVersion.Text = $"Current version: {localVersion}";
+                try
+                {
+                    byte[] data = await client.GetByteArrayAsync(downloadUrl);
+
+                    if (!System.IO.Directory.Exists(@".\tmp"))
+                    {
+                        System.IO.Directory.CreateDirectory(@".\tmp");
+                    }
+
+                    string filePath = @".\tmp\UnleashedRecomp-Windows.zip";
+
+                    if (System.IO.File.Exists(filePath))
+                    {
+                        System.IO.File.Delete(filePath);
+                    }
+
+                    System.IO.File.WriteAllBytes(filePath, data);
+
+                    UpdateStatusText.Text = "Update downloaded!";
+
+                    System.IO.Compression.ZipFile.ExtractToDirectory(
+                        filePath,
+                        @".\",
+                        overwriteFiles: true
+                    );
+
+                    System.IO.File.Delete(filePath);
+                    System.IO.Directory.Delete(@".\tmp", true);
+                    UpdateStatusText.Text = "Update installed!";
+                }
+                catch (Exception ex)
+                {
+                    UpdateStatusText.Text = "Error downloading update.";
+                    LoggingText.Text = $"Error downloading update: {ex.Message}";
+                    DownloadUpdateButton.IsEnabled = true;
+                }
             }
         }
 
         private async void OnCheckUpdateButtonClick(object sender, RoutedEventArgs e)
         {
+            getLocalVersion();
+
             UpdateStatusText.Text = "Checking for updates...";
 
             bool updateAvailable = await CheckForUpdatesAsync();
+
+            if (updateAvailable)
+            {
+                Status = UpdateStatus.UpdateAvailable;
+                DownloadUpdateButton.IsVisible = true;
+            }
+            else
+            {
+                Status = UpdateStatus.UpToDate;
+            }
 
             switch (Status)
             {
@@ -57,9 +106,16 @@ namespace UpdateCheckerApp
                     break;
                 case UpdateStatus.UpToDate:
                     UpdateStatusText.Text = "Your software is up to date!";
+                    UpdateStatusText.Foreground = new Avalonia.Media.SolidColorBrush(
+                        Avalonia.Media.Colors.Green
+                    );
                     break;
                 case UpdateStatus.UpdateAvailable:
                     UpdateStatusText.Text = "Update available!";
+                    DownloadUpdateButton.IsEnabled = true;
+                    UpdateStatusText.Foreground = new Avalonia.Media.SolidColorBrush(
+                        Avalonia.Media.Colors.Blue
+                    );
                     break;
             }
         }
@@ -77,9 +133,8 @@ namespace UpdateCheckerApp
 
                     string response = await client.GetStringAsync(apiUrl);
                     JObject json = JObject.Parse(response);
-                    string latestVersion = json["tag_name"]?.ToString() ?? "0.0.0.0";
+                    latestVersion = json["tag_name"]?.ToString() ?? "0.0.0.0";
 
-                    Console.WriteLine($"Latest online version: {latestVersion}");
                     LoggingText.Text = $"Latest online version: {latestVersion}";
 
                     return string.Compare(
@@ -90,11 +145,34 @@ namespace UpdateCheckerApp
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Error checking updates: {ex.Message}");
                     LoggingText.Text = $"Error checking updates: {ex.Message}";
                     Status = UpdateStatus.Error;
                     return false;
                 }
+            }
+        }
+
+        private string getLocalVersion()
+        {
+            string filePath = @".\UnleashedRecomp.exe";
+
+            if (!System.IO.File.Exists(filePath))
+            {
+                CurrentVersion.Text =
+                    "Error: UnleashedRecomp.exe not found.\nMake sure to put this file in the same directory as the game.";
+                CurrentVersion.Foreground = new Avalonia.Media.SolidColorBrush(
+                    Avalonia.Media.Colors.Red
+                );
+
+                CheckUpdateButton.IsVisible = false;
+                return "";
+            }
+            else
+            {
+                FileVersionInfo versionInfo = FileVersionInfo.GetVersionInfo(filePath);
+                localVersion = versionInfo.FileVersion ?? "0.0.0.0";
+                CurrentVersion.Text = $"Current version: {localVersion}";
+                return localVersion;
             }
         }
     }
